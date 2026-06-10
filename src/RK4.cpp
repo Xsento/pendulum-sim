@@ -5,8 +5,6 @@ void RK4::singlePendulum::eval(double x, std::vector<double> y, std::vector<doub
     dydx[0] = y[1];    // y[1] - prędkość kątowa, dydx[0] - pierwsza pochodna kąta po czasie
     
     //przyspieszneie kątowe
-    double F_drive = 1.2; 
-    double Omega = 0.666;
     dydx[1] = -g/L * sin(y[0]) - q * y[1] + F_drive * sin(Omega * x);
 }
 

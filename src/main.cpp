@@ -4,7 +4,7 @@
 #include "doublePendulum.hpp"
 
 // definitions for globals declared in main.hpp
-bool showGUI = 1;
+bool showGUI = true;
 bool H_pressed = false;
 float deltaTime = 0;
 
@@ -16,7 +16,7 @@ enum PENDULUM_TYPE{
 
 PENDULUM_TYPE pendulumType = PENDULUM_TYPE::NONE;
 
-void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendulumType, double& amount);
+void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendulumType, std::vector<Pendulum>& SPendulumVec, std::vector<DoublePendulum>& DPendulumVec);
 
 glm::vec3 hsv2rgb(float h, float s, float v);
 
@@ -96,9 +96,8 @@ int main()
     }
     */
 
-    std::vector<DoublePendulum>* DPendulumVec = nullptr;
-    std::vector<Pendulum>* SPendulumVec = nullptr;
-    double amount = 1000;
+    std::vector<DoublePendulum> DPendulumVec;
+    std::vector<Pendulum> SPendulumVec;
 
     DoublePendulum dp(2., 2., 0., 0., {1.f, 1.f, 1.f});
     std::vector<DoublePendulum> dps;
@@ -131,18 +130,15 @@ int main()
         shaderProgram.setMat4("projection", projection);
 
         // render pendulums
-        if(SPendulumVec){
-            for (auto& SP : *SPendulumVec){
-                SP.updateAndDraw(shaderProgram,currentTime,deltaTime);
-            }
+        for (auto& SP : SPendulumVec){
+            SP.updateAndDraw(shaderProgram,currentTime,deltaTime);
         }
-        if(DPendulumVec){
-            for (auto& DP : *DPendulumVec){
-                DP.updateAndDraw(shaderProgram,currentTime,deltaTime);
-            }
+        for (auto& DP : DPendulumVec){
+            DP.updateAndDraw(shaderProgram,currentTime,deltaTime);
         }
 
-        renderGUI(window, shaderProgram, pendulumType, amount);
+        if (showGUI)
+            renderGUI(window, shaderProgram, pendulumType, SPendulumVec, DPendulumVec);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -156,11 +152,11 @@ int main()
     return 0;
 }
 
-void generateDoublePendulums(double startingAngle1, double startingAngle2, double startingVelocity1, double startingVelocity2, double amount, double delta, std::vector<DoublePendulum>* vec){
+void generateDoublePendulums(double startingAngle1, double startingAngle2, double startingVelocity1, double startingVelocity2, double amount, double delta, std::vector<DoublePendulum>& vec){
     for (int i = 0; i < amount; i++){
         float hue = (static_cast<float>(i) / amount) * 360.0f; 
         glm::vec3 color = hsv2rgb(hue, 1.0f, 1.0f);
-        vec->push_back(DoublePendulum(
+        vec.push_back(DoublePendulum(
             startingAngle1 + (i * delta), 
             startingAngle2 + (i * delta), 
             startingVelocity1, startingVelocity2, 
@@ -169,11 +165,11 @@ void generateDoublePendulums(double startingAngle1, double startingAngle2, doubl
     }
 }
 
-void generateSinglePendulums(double startingAngle, double startingVelocity, double amount, double delta, std::vector<Pendulum>* vec){
-    for (int i = 0; i < amount; i++){
+void generateSinglePendulums(double startingAngle, double startingVelocity, double amount, double delta, std::vector<Pendulum>& vec){
+    for (int i = 0; i < static_cast<int>(amount); i++){
         float hue = (static_cast<float>(i) / amount) * 360.0f; 
         glm::vec3 color = hsv2rgb(hue, 1.0f, 1.0f);
-        vec->push_back(Pendulum(
+        vec.emplace_back(Pendulum(
             startingAngle + (i * delta), 
             startingVelocity, 
             color
@@ -181,7 +177,7 @@ void generateSinglePendulums(double startingAngle, double startingVelocity, doub
     }
 }
 
-void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendulumType, double& amount){
+void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendulumType, std::vector<Pendulum>& SPendulumVec, std::vector<DoublePendulum>& DPendulumVec){
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize 
                             | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove;    
 
@@ -191,30 +187,86 @@ void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendul
     ImGui::SetNextWindowPos({0,0}, ImGuiCond_FirstUseEver);
 
     if (pendulumType == PENDULUM_TYPE::NONE){
-        ImGui::Begin("Choose the pendulum type", &showGUI, flags);
-        if (ImGui::Button("Single chaotic pendulum", ImVec2(-1, 30))){
-            pendulumType == PENDULUM_TYPE::SINGLE;
+        ImGui::Begin("Main menu", &showGUI, flags);
+        if (ImGui::Button("Driven/Damped Pendulum", ImVec2(300, 30))){
+            pendulumType = PENDULUM_TYPE::SINGLE;
         }
-        if (ImGui::Button("Double pendulum", ImVec2(-1, 30))){
-            pendulumType == PENDULUM_TYPE::DOUBLE;
+        if (ImGui::Button("Double Pendulum", ImVec2(300, 30))){
+            pendulumType = PENDULUM_TYPE::DOUBLE;
         } 
+        ImGui::Text("Press [H] to toggle GUI");
+        ImGui::Text("Press [ESC] to exit");
     }
-    if (pendulumType == PENDULUM_TYPE::SINGLE){
-        int angle = 0;
-        int velocity = 0;
+    else if (pendulumType == PENDULUM_TYPE::SINGLE){
+        ImGui::Begin("Driven/Damped Pendulum", &showGUI, flags);
+        static float angle = M_PI;
+        static double velocity = 0;
+        static unsigned int amount = 100;
 
-        ImGui::Begin("Configure the simulation", &showGUI, flags);
         ImGui::Text("Amount of pendulums:");
         ImGui::InputScalar("##", ImGuiDataType_U32, &amount, nullptr, nullptr, "%u", ImGuiInputTextFlags_None);
-        ImGui::Separator();
-        ImGui::InputInt("Starting angle", &angle, 0, 360);
-        ImGui::Separator();
+        ImGui::Text("Starting angle:");
+        ImGui::SliderAngle("##2", &angle, 0, 360);
         ImGui::Text("Starting velocity:");
-        ImGui::InputScalar("##1", ImGuiDataType_U32, &velocity, nullptr, nullptr, "%u", ImGuiInputTextFlags_None);
-        
+        ImGui::InputScalar("##1", ImGuiDataType_Double, &velocity, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
+        ImGui::Separator();
 
+        if (!SPendulumVec.empty()){
+            double minF = 0;
+            double maxF = 5;
+            double minO = 0;
+            double maxO = 1;
+            ImGui::Text("Combined mass and air resitance factor:");
+            ImGui::SliderScalar("##5", ImGuiDataType_Double, &q, &minF, &maxF, "%lf", ImGuiInputTextFlags_None);
+            ImGui::Text("Driving force value:");
+            ImGui::SliderScalar("##3", ImGuiDataType_Double, &F_drive, &minF, &maxF, "%lf", ImGuiInputTextFlags_None);
+            ImGui::Text("Driving force frequency:");
+            ImGui::SliderScalar("##4", ImGuiDataType_Double, &Omega, &minO, &maxO, "%lf", ImGuiInputTextFlags_None);
+            ImGui::Separator();
+            ImGui::Text("Current driving force: %lf", F_drive * sin(Omega * glfwGetTime()));
+
+        }
+
+        if (ImGui::Button("Start the simulation", ImVec2(-1, 30))){
+            SPendulumVec.clear();
+            DPendulumVec.clear();
+            generateSinglePendulums(angle, velocity, amount, 0.0001, SPendulumVec);
+        } 
+
+        if (ImGui::Button("Return to main menu", ImVec2(-1, 30))){
+            pendulumType = PENDULUM_TYPE::NONE;
+        } 
     }
+    else{
+        ImGui::Begin("Double Pendulum", &showGUI, flags);
+        static float angle1 = M_PI;
+        static float angle2 = M_PI;
+        static double velocity1 = 0;
+        static double velocity2 = 0;
+        static unsigned int amount = 1000;
 
+        ImGui::Text("Amount of pendulums:");
+        ImGui::InputScalar("##", ImGuiDataType_U32, &amount, nullptr, nullptr, "%u", ImGuiInputTextFlags_None);
+        ImGui::Text("Starting angle 1:");
+        ImGui::SliderAngle("##1", &angle1, 0, 360);
+        ImGui::Text("Starting angle 2:");
+        ImGui::SliderAngle("##2", &angle2, 0, 360);
+        ImGui::Text("Starting velocity 1:");
+        ImGui::InputScalar("##3", ImGuiDataType_Double, &velocity1, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
+        ImGui::Text("Starting velocity 2:");
+        ImGui::InputScalar("##4", ImGuiDataType_Double, &velocity2, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
+        ImGui::Separator();
+
+        if (ImGui::Button("Start the simulation", ImVec2(-1, 30))){
+            SPendulumVec.clear();
+            DPendulumVec.clear();
+            generateDoublePendulums(angle1, angle2, velocity1, velocity2, amount, 0.00001, DPendulumVec);
+        } 
+
+        if (ImGui::Button("Return to main menu", ImVec2(-1, 30))){
+            pendulumType = PENDULUM_TYPE::NONE;
+        } 
+    }
 
     ImGui::End();
     ImGui::Render();
@@ -247,6 +299,18 @@ void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS){
+        if (!H_pressed){
+            showGUI = !showGUI;
+            H_pressed = true;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE){
+        if (H_pressed){
+            H_pressed = false;
+        }
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
