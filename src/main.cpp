@@ -31,7 +31,6 @@ int main()
     std::cout << "GLFW initialized properly" << std::endl;
 
     // glfw window creation
-    //glfwWindowHint(GLFW_MAXIMIZED , GL_TRUE);   // doesnt work on linux for some reason
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Please wait...", NULL, NULL);
     if (window == NULL)
     {
@@ -85,16 +84,6 @@ int main()
     float lastTime = glfwGetTime();
     float lastFPSupdate = lastTime;
 
-    /*
-    std::mt19937 rng(std::random_device{}());
-    std::uniform_real_distribution<double> angle(0, 0.001);
-    std::uniform_real_distribution<double> color(0.f, 1.f);
-
-    std::vector<Pendulum> pendulums;
-    for (int i = 0; i < 100; i++){
-        pendulums.push_back(Pendulum(M_PI+angle(rng),0.f,{color(rng), color(rng), color(rng)}));
-    }
-    */
 
     std::vector<DoublePendulum> DPendulumVec;
     std::vector<Pendulum> SPendulumVec;
@@ -216,6 +205,8 @@ void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendul
             double maxF = 5;
             double minO = 0;
             double maxO = 1;
+            ImGui::Text("Gravity:");
+            ImGui::InputScalar("##6", ImGuiDataType_Double, &g, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
             ImGui::Text("Combined mass and air resitance factor:");
             ImGui::SliderScalar("##5", ImGuiDataType_Double, &q, &minF, &maxF, "%lf", ImGuiInputTextFlags_None);
             ImGui::Text("Driving force value:");
@@ -224,7 +215,12 @@ void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendul
             ImGui::SliderScalar("##4", ImGuiDataType_Double, &Omega, &minO, &maxO, "%lf", ImGuiInputTextFlags_None);
             ImGui::Separator();
             ImGui::Text("Current driving force: %lf", F_drive * sin(Omega * glfwGetTime()));
-
+        }
+        else{
+            g = 9.81;     
+            q = 0.5;         
+            F_drive = 1.2;   
+            Omega = 0.666;   
         }
 
         if (ImGui::Button("Start the simulation", ImVec2(-1, 30))){
@@ -257,6 +253,14 @@ void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendul
         ImGui::InputScalar("##4", ImGuiDataType_Double, &velocity2, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
         ImGui::Separator();
 
+        if(!DPendulumVec.empty()){
+            ImGui::Text("Gravity:");
+            ImGui::InputScalar("##5", ImGuiDataType_Double, &g, nullptr, nullptr, "%lf", ImGuiInputTextFlags_None);
+        }
+        else{
+            g = 9.81;
+        }
+
         if (ImGui::Button("Start the simulation", ImVec2(-1, 30))){
             SPendulumVec.clear();
             DPendulumVec.clear();
@@ -274,7 +278,6 @@ void renderGUI(GLFWwindow*& window, Shader& shaderProgram, PENDULUM_TYPE& pendul
 }
 
 glm::vec3 hsv2rgb(float h, float s, float v) {
-    // H musi być w zakresie [0, 360], S i V w zakresie [0, 1]
     float h_prime = h / 60.0f;
     int i = static_cast<int>(h_prime);
     float f = h_prime - i;

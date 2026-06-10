@@ -2,13 +2,15 @@
 #include "globals.hpp"
 
 void RK4::singlePendulum::eval(double x, std::vector<double> y, std::vector<double>& dydx){
-    dydx[0] = y[1];    // y[1] - prędkość kątowa, dydx[0] - pierwsza pochodna kąta po czasie
+    dydx[0] = y[1];    // y[1] - angular velocity, dydx[0] - first derivative of the angle
     
-    //przyspieszneie kątowe
+    // angular acceleration
     dydx[1] = -g/L * sin(y[0]) - q * y[1] + F_drive * sin(Omega * x);
 }
 
 void RK4::doublePendulum::eval(double x, std::vector<double> y, std::vector<double>& dydx){
+    // the two motion equations are expressed as a matrix in order to simplify the calculations of the second derivatives
+    
     double A1 = 1/2. * L * cos(y[0] - y[2]);
     double A2 = 1/3. * L;
     double B1 = 4/3. * L;
@@ -36,8 +38,6 @@ void RK4::doublePendulum::eval(double x, std::vector<double> y, std::vector<doub
 
 void RK4::fixed(void (*eval)(double x, std::vector<double> y, std::vector<double>& dydx), double& x, std::vector<double>& y, double h){
     int n = y.size();
-
-    // Declare local arrays
     std::vector<double> k1(n), k2(n), k3(n), k4(n), f(n), dydx(n);
     
     // f is a vector of intermediate states of y used in calculations
